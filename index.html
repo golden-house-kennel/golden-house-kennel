@@ -272,6 +272,16 @@ body{font-family:'Crimson Pro',serif;background:var(--cream);color:var(--bark);m
     <div class="sec-hdr sh-gold">📌 Últimos Registros</div>
     <div class="sec-body" id="recent-list"><div class="empty"><div class="ico">🐾</div><p>Nenhum registro ainda</p></div></div>
   </div>
+
+  <div class="sec-card" style="border-color:rgba(198,40,40,.2)">
+    <div class="sec-hdr sh-red">⚠️ Zona de Perigo / 危険ゾーン</div>
+    <div class="sec-body">
+      <p style="font-size:14px;color:var(--bark-md);margin-bottom:12px">Apagar todos os registros permanentemente. Esta ação não pode ser desfeita.</p>
+      <button class="btn btn-danger" onclick="confirmarLimparTudo()" style="width:auto;padding:11px 20px;font-size:14px">
+        🗑 Limpar todos os registros
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ LISTA ═══ -->
@@ -586,6 +596,37 @@ body{font-family:'Crimson Pro',serif;background:var(--cream);color:var(--bark);m
   <div class="modal">
     <div class="modal-handle"></div>
     <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- MODAL LIMPAR TUDO -->
+<div class="overlay" id="danger-overlay" onclick="fecharDangerModal(event)">
+  <div class="modal" style="border-top:4px solid #C62828">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:48px;margin-bottom:8px">⚠️</div>
+      <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:900;color:#C62828">Apagar TODOS os registros?</div>
+      <div style="font-size:13px;color:#888;margin-top:6px">全記録を削除しますか？</div>
+    </div>
+    <div style="background:#FFF3F3;border:1px solid #FFCDD2;border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;color:#C62828;line-height:1.6">
+      ⚠️ Esta ação é <strong>irreversível</strong>.<br>
+      Todos os filhotes, fotos e dados serão apagados permanentemente do banco de dados.
+    </div>
+    <div class="fg">
+      <label style="font-family:'DM Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:#C62828;font-weight:600">
+        Para confirmar, digite: <strong>APAGAR TUDO</strong>
+      </label>
+      <input type="text" id="danger-confirm-input" placeholder="Digite APAGAR TUDO"
+        style="border-color:#FFCDD2;background:#FFF8F8;font-size:16px;letter-spacing:.05em"
+        oninput="checkDangerConfirm()">
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn btn-outline btn-sm" onclick="fecharDangerModal(null)">Cancelar</button>
+      <button class="btn btn-danger" id="danger-confirm-btn" disabled onclick="executarLimparTudo()"
+        style="opacity:.4;transition:opacity .2s">
+        🗑 Confirmar exclusão
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1502,6 +1543,51 @@ function printHokenjou() {
     </div>
   </div></div>`;
   setTimeout(()=>{ window.print(); setTimeout(()=>{ container.innerHTML=''; },1200); },300);
+}
+
+// ── LIMPAR TUDO ──
+function confirmarLimparTudo() {
+  document.getElementById('danger-confirm-input').value = '';
+  document.getElementById('danger-confirm-btn').disabled = true;
+  document.getElementById('danger-confirm-btn').style.opacity = '.4';
+  document.getElementById('danger-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('danger-confirm-input').focus(), 300);
+}
+
+function checkDangerConfirm() {
+  const val = document.getElementById('danger-confirm-input').value.trim().toUpperCase();
+  const btn = document.getElementById('danger-confirm-btn');
+  const ok = val === 'APAGAR TUDO';
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.4';
+}
+
+function fecharDangerModal(e) {
+  if(!e || e.target === document.getElementById('danger-overlay'))
+    document.getElementById('danger-overlay').classList.remove('open');
+}
+
+async function executarLimparTudo() {
+  document.getElementById('danger-overlay').classList.remove('open');
+  showToast('🗑 Apagando todos os registros…', 3000);
+  try {
+    // Apagar no Supabase
+    const { error } = await _supa.from('registros').delete().neq('id', 'nenhum_id_impossivel');
+    if(error) throw error;
+    // Limpar local
+    DB = [];
+    save();
+    renderDash();
+    renderLista('');
+    showToast('✅ Todos os registros foram apagados!');
+  } catch(e) {
+    // Se Supabase falhar, limpar só local
+    DB = [];
+    save();
+    renderDash();
+    renderLista('');
+    showToast('✅ Registros locais apagados!');
+  }
 }
 
 async function initApp() {
